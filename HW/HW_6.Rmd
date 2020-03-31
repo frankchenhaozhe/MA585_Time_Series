@@ -1,0 +1,186 @@
+---
+title: 'HW 6'
+output: html_document
+author: 'Haozhe Chen'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(TSA)
+library(xts)
+library(tseries)
+```
+
+1. Consider the Johnson and Johnson quarterly earnings data from January 1960 to December 1980 ( R data JohnsonJohnson)
+a. Plot the data. Describe the features of the data. Do the data look stationary? Explain your answer.
+b. Apply an appropriate variance stabilizing transformation, if necessary.
+c. Carry out classical decomposition of the data, plot the transformed series along with the ACF and PACF.
+d. Identify an ARMA model for the transformed data.
+e. Repeat c and d, but instead of classical decomposition, use differencing to make the data stationary.
+```{r}
+# JohnsonJohnson
+# plot the series
+par(mfrow=c(2,2)) 
+plot.ts(JohnsonJohnson, main='Johnson and Johnson')
+# The series look like a random walk, not stationary. The variance looks at depending on t. 
+# apply log transformation
+x <- log(JohnsonJohnson)
+plot.ts(x, main = 'Johnson and Johnson (log)')
+
+par(mfrow=c(2,2)) 
+# apply decomposition
+z <- decompose(x, type="additive") 
+# plot the stochastic part
+plot.ts(z$random, main = 'Johnson and Johnson (Stochastic part)' )
+# plot acf and pacf
+acf(z$random, na.action = na.pass, lag.max=20, main = 'ACF of Stochastic part')
+pacf(z$random, na.action = na.pass, lag.max=20, main = 'PACF of Stochastic part')
+# ACF cuts-off after lag 1; PACF cuts-off after lag 3
+# The stationary part might be MA(1), AR(3), or ARMA(3,1)
+# Apply eacf function
+TSA::eacf(na.omit(z$random))
+# The stationary part is identified as a MA(1) process
+
+par(mfrow=c(2,2)) 
+# Apply differencing, k=1
+x1 <- diff(x)
+# plot the series 
+plot.ts(x1, main = 'Johnson and Johnson (Differencing k=1)')
+# plot acf and pacf
+acf(x1, na.action = na.pass, lag.max=20, main = 'ACF after Differencing(k=1)')
+pacf(x1, na.action = na.pass, lag.max=20, main = 'PACF after Differencing(k=1)')
+# ACF cuts-off after lag 1; PACF cuts-off after lag 4
+# The stationary part might be MA(1), AR(4), or ARMA(4,1)
+# Apply eacf function
+TSA::eacf(x1)
+# The stationary part is identified as a MA(1) process
+```
+
+2. Consider the time series of the numbers of users connected to the Internet through a server every minute (R data WWWusage). Carry out a test for unit root. Apply necessary transformation and identify plausible ARMA models.
+```{r}
+x <- WWWusage
+adf.test(x)
+# fail to reject H0, apply transformation
+
+x1 <- log(WWWusage)
+adf.test(x1)
+# still fail to reject H0, try differencing
+
+# apply differencing to eliminate the trend, k=2
+x2 <- diff(diff(WWWusage))
+adf.test(x2)
+# reject the null, x2 is stationary
+
+# identify the model
+par(mfrow=c(2,2)) 
+plot.ts(x2)
+acf(x2, lag.max=20, main = 'ACF after Differencing (k=2)')
+pacf(x2, lag.max=20, main = 'ACF after Differencing (k=2)')
+# according to the ACF and PACF plots, x2 might be an ARMA(0,0) process, 
+# which means it might be a white noise process
+
+```
+
+6f. Write a R code generate a random sample of size 500 from the AR(1) process with phi = 0.6 and sigma^2 = 0.8, Plot the simulated series along with the sample ACF and PACF of the series. Is the sample ACF and PACF consistent with AR(1)?
+```{r}
+# simulate the series
+AR.sm <- list(order = c(1,0,0), ar = 0.6, sd = sqrt(0.8))
+AR1.sm <- arima.sim(n=500, AR.sm)
+par(mfrow=c(2,2)) 
+plot.ts(AR1.sm, main = 'simulated AR(1)')
+acf(AR1.sm, main = 'ACF of simulated series')
+pacf(AR1.sm, main = 'PACF of simulated series')
+# the ACF dampens to zero and PACF cuts-off at lag 1, 
+# so it is consistent with AR(1)
+```
+
+
+# R code for Lecture Notes 4
+## Estimation of a Trend: Least Square Approach 
+```{r}
+par(mfrow=c(2,2)) 
+plot.ts(AirPassengers, main="Airline Passenger Data") 
+plot.ts(log(AirPassengers), main="Airline Passenger Data after log Transformation") 
+# length(AirPassengers)
+fit <- lm(log(AirPassengers)~c(1:144)) 
+plot(log(AirPassengers), main="Linear Fit to log Transformed Data") 
+lines(ts(fit$fitted.values, frequency=12, start=c(1949,1))) 
+plot(ts(fit$residuals,frequency=12,start=c(1949,1)),ylab="Residual") 
+title(main="Residual of log Airline Pasenger Data") 
+```
+
+## Estimation of a Trend: Moving Average Filter 
+```{r warning=FALSE}
+library(forecast) 
+plot(log(AirPassengers), main="Moving Average Smoothing of log AirPassenger Data") 
+lines(ma(log(AirPassengers),order=3),col="red") 
+lines(ma(log(AirPassengers),order=7),col="blue") 
+lines(ma(log(AirPassengers),order=11),col="green") 
+legend(1950,6.4,c("3-pt moving ave","7-pt moving average","11-point moving average"),lty=c(1,1), 
+col=c("red","blue","green")) 
+```
+
+## Estimation of a Trend: Exponential Smoothing 
+```{r}
+library(forecast) 
+fit1 <- ses(log(AirPassengers),alpha=0.6,initial="simple",h=3) 
+fit2 <- ses(log(AirPassengers),alpha=0.3,initial="simple",h=3) 
+fit3 <- ses(log(AirPassengers),alpha=0.1, initial="simple",h=3) 
+plot(log(AirPassengers), main="Exponential Smoothing of log AirPassenger data") 
+lines(fitted(fit1),col="red") 
+lines(fitted(fit2),col="blue") 
+lines(fitted(fit3),col="green") 
+legend(1950,6.4,c("lambda=0.6","lambda=0.3","lambda=0.1"), lty=c(1,1),col=c("red","blue","green")) 
+```
+
+## Trend via Differencing
+```{r}
+par(mfrow=c(1,2)) 
+plot(log(AirPassengers), main = "log‐AirPassenger Data") 
+plot(ts(diff(diff(log(AirPassengers)), lag=12),frequency=12, start=c(1949,1)), 
+        ylab="diff(1,12)",main="Differenced Data at lag=(1,12)") 
+```
+
+## Additive and Multiplicative Decomposition 
+```{r}
+z <- decompose(log(AirPassengers), type="additive") 
+plot(z) 
+# Changing type to “multiplicative” gives multiplicative decomposition. 
+# The function decomp.plot allows the title of decompose to be changed. 
+decomp.plot <- function(x, main = NULL, ...) 
+{ 
+  if(is.null(main)) 
+    main <- paste("Decomposition of", x$type, "time series") 
+    plot(cbind(observed = x$random + 
+                 if (x$type == "additive") x$trend + x$seasonal 
+               else x$trend * x$seasonal, 
+               trend = x$trend, seasonal = x$seasonal, 
+    random = x$random), main = main, ...) 
+} 
+z <- decompose(log(AirPassengers), type="additive") 
+decomp.plot(z, main="Additive Decomposition of log(AirPassengers) Data") 
+```
+
+## Harmonic Regression Example 
+```{r}
+library(itsmr) 
+x <- trend(log(AirPassengers), 2) 
+dlogair <- log(AirPassengers) - x 
+y <- hr(dlogair,c(12,6)) 
+fit <- x + y 
+res <- log(AirPassengers) - fit 
+par(mfrow=c(1,2)) 
+plot.ts(log(AirPassengers),main="Trend with LM(t , t^2) and HR (d=12 , l=2)") 
+lines(ts(fit,frequency=12, star=c(1949,1)),col="red") 
+plot.ts(res, ylab="residual", main="Residual") 
+```
+
+## Seasonal Differencing 
+```{r}
+par(mfrow=c(1,2)) 
+plot(log(AirPassengers),main="log‐AirPassenger Data") 
+plot(ts(diff(diff(log(AirPassengers)),lag=12),frequency=12,start=c(1949,1)), 
+        ylab="diff(1,12)",main="Differenced Data at lag=(1,12)") 
+```
+
+

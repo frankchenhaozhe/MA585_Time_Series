@@ -1,0 +1,107 @@
+---
+title: "Time Series HW 2"
+author: "Haozhe Chen"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(readr,dplyr,tidyverse,lubridate,TSA)
+```
+1. Google Trends (https://www.google.com/trends/) provides information about popularity of search phrases. You can enter your phrase in the search box and from the drop down menu your can choose your time frame. For less than 90 days, you can view the daily data, otherwise you will see the weekly or monthly data. You can download the data in csv format by clicking on the [+] symbol from the top right corner (you need to be logged into your Google account). Here is the daily time series plot for the frequency of the search term "Super Bowl" in the last 30 days.
+```{r}
+superbowl=read.csv("superbowl.csv")[-1,] %>% as.character() %>% as.numeric()
+# length(superbowl)
+plot.ts(superbowl,ylab="Frequency of search term Super Bowl",xlab="Day")
+title("Daily Google Search for Super Bowl in the Last 30 Days")
+```
+Your job is to think of three search terms each with the following characteristics:
+In each case download and plot the data. Explain why the data satisfies the requirements as stated above.
+1. a time series with a clear trend component
+```{r}
+HousePirce=read.csv("China House Price.csv")[-1,] %>% as.character() %>% as.numeric()
+HousePirce_ts=ts(HousePirce,frequency=12,start=c(2004,1))
+plot.ts(HousePirce_ts, ylab="House Price indexes",xlab="Year")
+title("The house price from 2004 to 2010 in China")
+# There is a significant increase of China's house price from 2004 to 2010
+```
+2. a time series with a clear seasonal component.
+```{r}
+temp=read.csv("Temperature.csv")[-1,]%>% as.character() %>% as.numeric()
+temp_ts=ts(temp,frequency=52,start=c(2015,2,8))
+plot.ts(temp_ts, ylab="Global Temperature (F)",xlab="Year")
+title("Global Temperature in past 5 years")
+# from the plot, we could know that there is seasonal patterns of temperature, in the middle of years, there is a spike,
+# which represents the summer. The summer in 2018 is warmer than other years. We can also observe that 
+# there is a trend of gloabl warming. 
+```
+3. a time series with no clear trend or seasonal pattern and is poorly described by a combination of trend and seasonal components.
+```{r}
+gamerevenue=read.csv("gamerevenue.csv")[-1,]%>% as.character() %>% as.numeric()
+gamerevenue_ts=ts(gamerevenue,frequency=52,start=c(2015,2,8))
+plot.ts(gamerevenue_ts, ylab="Game Revuenue in Japan",xlab="Year")
+title("Game revenue in Japan in the past 5 years")
+# The Game Revuenue of Japan in recent years; From the plot, I cannnot detect
+# any patterns, there are several spikes, but they are neither seasonal nor looks alike. 
+```
+
+2. National Oceanic and Atmospheric Administration (NOAA) is a great resource for atmospheric time series data. Explore the website https://www.ncdc.noaa.gov/cdoweb/. You will find a wealth of time series data on climate. I have downloaded data related to recent climate patterns in Boston (2000 onwards) and it is available as a csv file "BostonClimateData.csv". Load the data in R. You will see that the data was collected from multiple weather stations in Massachusetts.Let's focus on the data collected at the Boston Logan Airport.
+```{r}
+BosClimateData=read.csv("BosClimateData.csv")
+BosData=subset(BosClimateData,BosClimateData$STATION_NAME=="BOSTON LOGAN INTERNATIONAL AIRPORT MA US")
+# The data has four variables.
+# TPCP - Total precipitation amount for the month (tens of mm)
+# TSNW - Total snowfall amount for the month (mm)
+# MMXT - Monthly mean maximum temperature (tenths of degrees of Celsius)
+# MNTM ñMonthly mean temperature (tenths of degrees of Celsius)
+```
+Plot the time series for each variable and write a short description of the key features of each series. What proportion of months had total snowfall greater than a foot? What proportion of months mean maximum temperature exceeded 800F?
+```{r}
+BosData$DATE = as_date(BosData$DATE)
+# ggplot(BosData, aes(DATE, TPCP)) + geom_line() + scale_x_date(date_labels = "%b-%Y") + xlab("") + ylab("TPCP")
+plot.ts(BosData$TPCP)
+plot.ts(BosData$TSNW)
+plot.ts(BosData$MMXT)
+plot.ts(BosData$MMNT)
+```
+
+3. a. Simulate a completely random process of length 100 with independent standard normal values. Plot the time series. Does it look "random"? Repeat this exercise a few times with a new simulation each time.
+```{r}
+sim = function(x,y){
+  plot.ts(rnorm(100,x,y))
+}
+par(mfrow=c(2,2))
+sim(0,5)
+sim(10,3)
+sim(999,0.1111)
+random_walk = arima.sim(model = list(order = c(0, 1, 0)), n = 100)
+plot.ts(random_walk)
+
+# The plots do no have particular patterns.
+
+```
+
+b. Repeat the problem in (a), except this time use random samples from a t-distribution with 4 df (replace rnorm(100) by rt(n=100, df=4)). If you didn't know that the data was generated from independent t-distribution, what feature of the data might have made you think that the data generating process may not be Gaussian?
+```{r}
+set.seed(2)
+rt(n=100,df=4) %>% plot.ts()
+# The t-distribution also has a bell shape, but it is more flat than normal distribution,
+# which means the tails are bigger, and the chance of observing outliers is higher than normal distribution
+# Based on the plot, we can see that the max is around 6 and the min is around -2, it seems not that normaly distributated
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

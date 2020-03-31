@@ -1,0 +1,168 @@
+---
+title: 'HW 5'
+output: html_document
+author: 'Haozhe Chen'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(ARMAacf,dplyr)
+```
+
+3. For each one of the following ARMA processes, choose parameters such that the process is causal and invertible. In each case, use the arima.sim function in R to generate a sample realization of size 100: Generate a time series plot of the simulated series, and in each case plot both population and sample ACF and PACF.
+(i) AR(2) : $X_t + 0.2X_{t−1} − 0.48X_{t−2} = Z_t$
+```{r}
+polyroot(c(1,0.2,-0.48))
+# the roots lie outside the unit circle, hence it is causal.
+# The process is also invertible becasue the MA part can be expressed as an AR model. 
+
+x=arima.sim(n=100, list(ar=c(-0.2,0.48)))
+plot.ts(x)
+title(main="Simulated Data from the AR(2) Process X(t)+0.2X(t-1)-0.48X(t-2)=Z(t)") 
+
+par(mfrow=c(2,2))
+y = ARMAacf(ar=c(-0.2,0.48),lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Autocorrelation", main = "AR(2) Population ACF")
+abline(h = 0)
+y = ARMAacf(ar=c(-0.2,0.48),lag.max = 20,pacf=T)
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Partial Autocorrelation", main = "AR(2) Population PACF")
+abline(h = 0)
+acf(x,main="Sample ACF", ylim = c(-1,1))
+pacf(x,main="Sample PACF", ylim = c(-1,1))
+
+```
+(ii) ARMA(1,1) : $X_t - 0.5X_{t−1}= Z_t+0.3Z_t$
+```{r}
+polyroot(c(1,-0.5))
+polyroot(c(1,0.3))
+# Both the root of phi(B) and theta(B) are lie outside the unit circle
+# So it is causal and invertible
+
+x=arima.sim(n=100, list(ar=c(0.5), ma=c(0.3)))
+plot.ts(x)
+title(main="Simulated Data from the AR(1,1) Process X(t)-0.5X(t-1)=Z(t)+0.3Z(t-1)")
+
+par(mfrow=c(2,2))
+y = ARMAacf(ar=c(0.5), ma=c(0.3),lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Autocorrelation", main = "AR(1,1) Population ACF")
+abline(h = 0)
+y = ARMAacf(ar=c(0.5), ma=c(0.3),lag.max = 20,pacf=T)
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Partial Autocorrelation", main = "AR(1,1) Population PACF")
+abline(h = 0)
+acf(x,main="Sample ACF", ylim = c(-1,1))
+pacf(x,main="Sample PACF", ylim = c(-1,1))
+
+```
+(iii) MA(1) : $X_t = Z_t-0.2Z_{t-1}$
+```{r}
+polyroot(c(1,-0.2))
+# the root lie outside the unit circle
+
+x=arima.sim(n=100, list(ma=c(-0.2)))
+plot.ts(x)
+title(main="Simulated Data from the MA(1) Process X(t)=Z(t)-0.2Z(t-1)")
+
+par(mfrow=c(2,2))
+y = ARMAacf(ma=c(-0.2),lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Autocorrelation", main = "MA(1) Population ACF")
+abline(h = 0)
+y = ARMAacf(ma=c(-0.2),lag.max = 20,pacf=T)
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Partial Autocorrelation", main = "MA(1) Population PACF")
+abline(h = 0)
+acf(x,main="Sample ACF", ylim = c(-1,1))
+pacf(x,main="Sample PACF", ylim = c(-1,1))
+
+```
+(iv) ARMA(1,2) : $X_t-0.3X_{t-1} = Z_t+0.2Z_{t-1}-0.48Z_{t-2}$
+```{r}
+polyroot(c(1,-0.3))
+polyroot(c(1,0.2,-0.48))
+# Both the root of phi(B) and theta(B) are lie outside the unit circle
+# So it is causal and invertible
+
+x=arima.sim(n=100, list(ar=c(0.3), ma=c(0.3,-0.48)))
+plot.ts(x)
+title(main="Simulated Data from the AR(1,2) Process X(t)-0.3X(t-1)=Z(t)+0.3Z(t-1)-0.48Z(t-2)")
+
+par(mfrow=c(2,2))
+y = ARMAacf(ar=c(0.3), ma=c(0.3,-0.48),lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Autocorrelation", main = "AR(1,2) Population ACF")
+abline(h = 0)
+y = ARMAacf(ar=c(0.3), ma=c(0.3,-0.48),lag.max = 20,pacf=T)
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Partial Autocorrelation", main = "AR(1,2) Population PACF")
+abline(h = 0)
+acf(x,main="Sample ACF", ylim = c(-1,1))
+pacf(x,main="Sample PACF", ylim = c(-1,1))
+```
+
+5.Verification of ACF's of AR(2): $X_t-X_{t-1}+0.25X_{t-2} = e_t$
+```{r}
+rho_h = ARMAacf(ar=c(1,-0.25),lag.max=5)
+round(rho_h,3)
+```
+
+8. Consider the annual sunspots data in R given in data file sunspot.year (yearly numbers of sunspots from 1700 to 1988).
+(i) Plot the time series and describe the features of the data.
+```{r}
+plot.ts(sunspot.year,main = "The sunspot series")
+# the series always goes up first and then goes down, it has certain seansonal trend. 
+```
+
+(ii) Generate a new time series by transforming the data as newsunspot=sqrt(sunspot.year).Plot the new time series. Why is the square-root transformation necessary?
+```{r}
+newsunspot = sqrt(sunspot.year)
+plot.ts(newsunspot, main = "The sunspot series")
+# We use transformations because we want to stablize the variance across time, and improve the signal. 
+```
+(ii) Plot ACF and PACF of the transformed data. Based on these plots,propose a plausible model and justify your answer
+```{r}
+par(mfrow=c(2,2))
+acf(newsunspot, main = "ACF of sunspot series")
+pacf(newsunspot, main = "PACF of sunspot series")
+# The ACF decays to 0, and PACF seems like cut-off after lag 2
+# First aussuming this is an AR(2) model,caculate phi_1 and phi_2 based on phi_11 and phi_22,
+# We have: X(t)-1.28X(t-1)+0.6X(t-2)=e(t)
+
+# The model is causal and invertible
+polyroot(c(1,-1.28,0.6))
+
+# plot the ACF and PACF
+x=arima.sim(n=length(newsunspot), list(ar=c(1.28,-0.6)))
+plot.ts(x,main="Simulated candidate model")
+plot.ts(newsunspot, main = "The sunspot series")
+
+par(mfrow=c(2,2))
+y = ARMAacf(ar=c(1.28,-0.6),lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Autocorrelation", main = "Simulated Population ACF")
+abline(h = 0)
+y = ARMAacf(ar=c(1.28,-0.6),lag.max = 20,pacf=T)
+plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "h",
+ylab = "Partial Autocorrelation", main = "Simulated Population PACF")
+abline(h = 0)
+acf(x,main="Simulated Sample ACF", ylim = c(-1,1))
+pacf(x,main="Simulated Sample PACF", ylim = c(-1,1))
+# It captures some of the trend of sunpot series, but not looks very similar. 
+# Therefore it might be an AR(2,1) model based on the eacf. 
+TSA::eacf(newsunspot)
+```
+
+
+
+
+
+
+

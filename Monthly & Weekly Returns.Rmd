@@ -1,0 +1,85 @@
+---
+title: "Monthly&Weekly Returns"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(lubridate)
+library(tidyverse)
+library(dplyr)
+library(esquisse)
+Nasdaq <- read.csv("Nasdaq.csv", header=T, stringsAsFactors=F)
+SnP500 <- read.csv("SnP500.csv", header=T, stringsAsFactors=F)
+Dow30 <- read.csv("Dow30.csv", header=T, stringsAsFactors=F)
+Russell2000 <- read.csv("Russell2000.csv", header=T, stringsAsFactors=F)
+```
+
+```{r}
+
+Nasdaq_df <- Nasdaq[,c('Date','Adj.Close')] %>% mutate(Date = as_date(Date))
+
+# manipulate the dates
+Nasdaq_df$year <- year(Nasdaq_df$Date)
+Nasdaq_df$month <- month(Nasdaq_df$Date)
+Nasdaq_df$mday <- mday(Nasdaq_df$Date)
+Nasdaq_df$yday <- yday(Nasdaq_df$Date)
+Nasdaq_df$wday <- wday(Nasdaq_df$Date)
+head(Nasdaq_df)
+
+```
+
+```{r}
+
+# Close price grouped by months
+Nasdaq1 <- Nasdaq_df %>% group_by(year,month) %>% summarise(close = mean(Adj.Close))
+# Close price grouped by month days
+Nasdaq2 <- Nasdaq_df %>% group_by(year,month,mday) %>% summarise(close = mean(Adj.Close))
+# Close price grouped by week days
+Nasdaq3 <- Nasdaq_df %>% group_by(month,wday) %>% summarise(close = mean(Adj.Close))
+
+# Compute the returns, R is simple returns, r is log returns
+Nasdaq1_R <- diff(Nasdaq1$close)/Nasdaq1$close[-1] %>% data_frame()
+Nasdaq1_r <- diff(log(Nasdaq1$close)) %>% data_frame()
+monthly_return <- cbind(as.data.frame(Nasdaq1)[-1,], Nasdaq1_R, Nasdaq1_r)
+colnames(monthly_return)[4:5] <- c('simple_return', 'log_return')
+head(monthly_return)
+
+# Compute daily the returns, R is simple returns, r is log returns
+Nasdaq2_R <- diff(Nasdaq2$close)/Nasdaq2$close[-1] %>% data_frame()
+Nasdaq2_r <- diff(log(Nasdaq2$close)) %>% data_frame()
+daily_return <- cbind(as.data.frame(Nasdaq2)[-1,], Nasdaq2_R, Nasdaq2_r)
+colnames(daily_return)[5:6] <- c('simple_return', 'log_return')
+head(daily_return)
+
+```
+
+```{r}
+# esquisser(Nasdaq3)
+
+# Comparing monthly returns
+ggplot(monthly_return) +
+ aes(x = month, y = log_return) +
+ geom_line(size = 1L, colour = "#0b53c1") +
+ labs(y = "log returns", title = "Comparing monthly returns ") +
+ theme_linedraw() +
+ facet_wrap(vars(year))
+
+# Comparing daily returns in 2018
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

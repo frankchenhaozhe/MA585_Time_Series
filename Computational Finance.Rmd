@@ -1,0 +1,186 @@
+---
+title: "Computational Finance"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages('PerformanceAnalytics')
+```
+
+```{r}
+Nasdaq = read.csv("Nasdaq.csv", header=T, stringsAsFactors=F)
+SnP500 = read.csv("SnP500.csv", header=T, stringsAsFactors=F)
+Dow30 = read.csv("Dow30.csv", header=T, stringsAsFactors=F)
+Russell2000 = read.csv("Russell2000.csv", header=T, stringsAsFactors=F)
+```
+
+```{r}
+Date = Nasdaq$Date
+Nasdaq_AdjClose = Nasdaq[,'Adj.Close',drop=FALSE]
+SnP500_AdjClose = SnP500[,'Adj.Close',drop=FALSE]
+Dow30_AdjClose = Dow30[,'Adj.Close',drop=FALSE]
+Russell2000_AdjClose = Russell2000[,'Adj.Close',drop=FALSE]
+```
+
+```{r}
+# slicing by date
+rownames(Nasdaq_AdjClose) = Date
+head(Nasdaq_AdjClose)
+price_1 = Nasdaq_AdjClose['2014-01-09',]
+price_2 = Nasdaq_AdjClose['2018-01-09',]
+```
+
+```{r}
+# plot the adjusted closing price
+plot(Nasdaq_AdjClose$Adj.Close, type='l', col='blue', lwd=2, ylab='Adjusted close', main='Daily closing price of Nasdaq')
+```
+
+## Returns
+Simple returns: $R_t=(P_t-P_{t-1})/P_{t-1}$
+Log returns: $r_t=ln(P_t/P_{t-1})=ln(P_t)-ln(P_{t-1})$
+Transmutations: $r_t=log(R_t+1); R_t=exp(r_t)-1$
+```{r}
+# the simple returns of Nasdaq
+n = nrow(Nasdaq_AdjClose)
+Nasdap_R = (Nasdaq_AdjClose[2:n,1] - Nasdaq_AdjClose[1:(n-1),1])/Nasdaq_AdjClose[1:(n-1),1]
+class(Nasdap_R)
+# add dates as names to the vector
+names(Nasdap_R) = Date[-1]
+head(Nasdap_R)
+
+# the log returns (continuously compounded return) of Nasdaq
+Nasdap_r = log(Nasdaq_AdjClose[2:n,1])-log(Nasdaq_AdjClose[1:(n-1),1])
+names(Nasdap_r) = Date[-1]
+head(Nasdap_R)
+
+# Compare the simple and log returns
+head(cbind(Nasdap_R,Nasdap_r))
+
+# Graphically compare the simple and log returns
+plot(Nasdap_R[1:100], type = "l", col = "blue", lwd = 2, ylab = "Return", main = "Daily Returns on Nasdaq")
+abline(h=0)
+lines(Nasdap_r[1:100],col='red',lwd=1)
+legend(x = "bottomright", legend = c("Simple", "Log"), lty = 1, lwd = 2, col = c("blue", "red"))
+
+```
+
+## Caculating future values
+```{r}
+# Compute future values
+# cumprod is the cumulative products
+Nasdap_fv = cumprod(Nasdap_R+1)
+plot(Nasdap_fv,type='l',col='blue',lwd = 2, ylab = "Dollars", main = "FV of $1 invested in Nasdap")
+```
+
+## Calculating the returns
+```{r}
+# extract columns from indices
+all_prices = cbind(Nasdaq$Adj.Close, SnP500$Adj.Close, Dow30$Adj.Close, Russell2000$Adj.Close)
+colnames(all_prices) <- c("Nasdaq", "SnP500", "Dow30","Russell2000")
+rownames(all_prices) = Date
+# Calculate cc returns as difference in log prices
+all_returns <- diff(log(all_prices))
+# Look at the return data
+head(all_returns)
+
+```
+
+## Visulizations of the returns
+```{r message=F}
+library(PerformanceAnalytics)
+
+# Plot returns after using the PerformanceAnalytics function chart.TimeSeries().
+chart.TimeSeries(all_returns[1:30,], legend.loc = "bottomright", main = " ")
+chart.Bar(all_returns[1:30,], legend.loc = "bottomright", main = " ")
+# Plot future invest values 
+chart.CumReturns(all_returns,legend.loc = "topleft", wealth.index=T, main = "Future Value of $1 invested")
+
+# The simple returns
+simple_returns <- diff(all_prices)/all_prices[-1,]
+chart.CumReturns(simple_returns,legend.loc = "topleft", wealth.index=T, main = "Future Value of $1 invested")
+
+# Create matrix with returns (Extracting the Core Data of Objects)
+return_matrix <- coredata(all_returns)
+
+# Create graphical summary for a return series
+par(mfrow = c(2, 2))
+hist(return_matrix[, "Nasdaq"], main = "Nasdaq daily log returns",
+     xlab = "Nasdaq", probability = T, col = "slateblue1")
+boxplot(return_matrix[, "Nasdaq"], outchar = T, main = "Boxplot", col = "slateblue1")
+plot(density(return_matrix[, "Nasdaq"]), type = "l", main = "Smoothed density",
+     xlab = "monthly return", ylab = "density estimate", col = "slateblue1")
+qqnorm(return_matrix[, "Nasdaq"], col = "slateblue1")
+qqline(return_matrix[, "Nasdaq"])
+par(mfrow = c(1, 1))
+
+# Comparing the distributions
+boxplot(return_matrix[, "Nasdaq"], 
+        return_matrix[, "SnP500"], 
+        return_matrix[, "Dow30"],
+        return_matrix[, "Russell2000"],
+        names = colnames(return_matrix), col = "slateblue1")
+
+# Do the same thing using the PerformanceAnalytics function chart.Boxplot
+chart.Boxplot(all_returns)
+
+```
+
+# Descriptive statistics of returns
+```{r}
+# Generate summary
+summary(return_matrix)
+
+# Compute descriptive statistics by column using the base R function apply()
+args(apply)
+# For a matrix '1' indicates rows, and '2' indicates columns.
+apply(return_matrix, 2, mean)
+apply(return_matrix, 2, var)
+apply(return_matrix, 2, sd)
+apply(return_matrix, 2, skewness)
+apply(return_matrix, 2, kurtosis)
+# Call table.Stats on all_returns
+table.Stats(all_returns)
+
+# The estimated monthly simple return
+# Since the returns were continuously compounded, 
+# an estimate of the monthly continuously compounded return is 
+# 21(work days) times the daily continuously compounded return.
+exp(21 * apply(return_matrix, 2, mean)) - 1
+# The standard deviation
+sqrt(21) * apply(return_matrix, 2, sd)
+
+# Multivariate graphical analysis
+# Display all possible pair-wise scatter plots
+pairs(return_matrix, pch=1, col='slateblue1')
+# Compute n x n covariance and correlation matrices
+cov(return_matrix)
+cor(return_matrix)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

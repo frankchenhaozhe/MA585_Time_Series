@@ -1,0 +1,173 @@
+---
+title: 'HW 4'
+output: html_document
+author: 'Haozhe Chen'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(ARMAacf,dplyr,TinyTeX)
+```
+
+1. For each of the following scenarios, choose $\phi_1$ and $\phi_2$
+so that the resulting AR(2) process is causal. In each case use R to plot ACF and PACF of the AR(2) process and discuss the characteristics of the plots.
+(i) $\phi_1$ > 0 and $\phi_2$ > 0
+(ii) $\phi_1$ < 0 and $\phi_2$ > 0
+(iii) $\phi_1$ > 0 and $\phi_2$ < 0
+(iv) $\phi_1$ < 0 and $\phi_2$ < 0
+
+The condition for causality of AR(2):
+$\phi_2+\phi_1<1$, $\phi_2-\phi_1<1$, $-1<\phi_2<1$, so choose the combinations of $\phi_1=(0.5,-0.5)$ and $\phi_2=(0.3,-0.3)$. 
+```{r}
+# define the function
+acfplot = function(phi_1,phi_2){
+  y = ARMAacf(ar = c(phi_1,phi_2), lag.max = 20)
+  y = y[2:21]
+  plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "lags", ylab = "Autocorrelation", main = "AR(2) Population ACF")
+abline(h = 0)
+  y = ARMAacf(ar = c(phi_1,phi_2), lag.max = 20, pacf=T)
+  plot(y, x = 1:20, type = "h", ylim = c(-1,1), xlab = "lags", ylab = "PartialAutocorrelation", main = "AR(2) Population PACF")
+abline(h = 0)
+}
+
+# plot them
+par(mfrow=c(2,2))
+acfplot(0.5,0.3)
+acfplot(-0.5,0.3)
+acfplot(0.5,-0.3)
+acfplot(-0.5,-0.3)
+
+# All ACFs decay to zero, either exponentially or like a damped sine wave. 
+# All PACFs cut-off after lag 2
+```
+
+2.Textbook questions
+3.1 Determine which of the following ARMA processes are causal and which of them are invertible. (In each case {Zt} denotes white noise.)
+(a) $X_t + 0.2X_{t−1} − 0.48X_{t−2} = Z_t$
+$\phi(B)=1+0.2B-0.48B^2$ and $\theta(B)=1$, solve the characteristic equation: 
+```{r}
+# the roots of phi(B)=0
+# the roots lie outside the unit circle
+polyroot(c(1,0.2,-0.48))
+```
+The process is causal is the roots are lie outside the unit circle; The process is invertible becasue the MA part can be expressed as an AR model. 
+
+(b) $X_t + 1.9X_{t−1} + 0.88X_{t−2} = Z_t + 0.2Z_{t−1} + 0.7Z_{t−2}$
+$\phi(B)=1+1.9B+0.88B^2$ and $\theta(B)=1+0.2B+0.7B^2$, solve their characteristic equations:
+```{r}
+# the root of phi(B)=0
+polyroot(c(1,1.9,0.88))
+# the root of theta(B)=0
+polyroot(c(1,0.2,0.7))
+# the complex module of theta(B), it is greater than 1
+sqrt(0.142857^2+1.186661^2)
+```
+Hence, the process is not causal, but invertible.
+
+(c) $X_t + 0.6X_{t−1} = Z_t + 1.2Z_{t−1}$
+$\phi(B)=1+0.6B$ and $\theta(B)=1+1.2B$, solve their characteristic equations:
+```{r}
+# the root of phi(B)=0
+polyroot(c(1,0.6))
+# the root of theta(B)=0
+polyroot(c(1,1.2))
+```
+Since $B_\phi$ are outside the unit circle, $B_\theta$ are inside the unit circle, the process is causal, but not invertible.
+
+(d) $X_t + 1.8X_{t−1} + 0.81X_{t−2} = Z_t$
+$\phi(B)=1+1.8B+0.81B^2$ and $\theta(B)=1$
+```{r}
+# the root of phi(B)=0
+polyroot(c(1,1.8,0.81))
+```
+Thus the process is causal.Also,the process is invertible becasue the MA part can be expressed as an AR model. 
+
+(e) $X_t + 1.6X_{t−1} = Z_t − 0.4Z_{t−1} + 0.04Z_{t−2}$
+$\phi(B)=1+1.6B$ and $\theta(B)=1-0.4B+0.04B^2$
+```{r}
+# the root of phi(B)=0
+polyroot(c(1,1.6))
+# the root of theta(B)=0
+polyroot(c(1,-0.4,0.04))
+```
+Since $B_\phi$ are inside unit circle, $B_\theta$ are outside the unit circle, the process is not causal, but invertible.
+
+3.2 For those processes in Problem 3.1 that are causal and invertible, compute and graph their ACF and PACF using R.
+$$X_t + 0.2X_{t−1} − 0.48X_{t−2} = Z_t$$
+```{r}
+
+# ACF and plot
+acf = ARMAacf(ar = c(-0.2,0.48), lag.max = 20)
+acf = acf[2:21]
+plot(acf, x=1:20, type = "h", xlab = "h", ylab = "Autocorrelation", main = "AR(2) Population ACF")
+abline(h = 0)
+
+# PACF and plot
+pacf = ARMAacf(ar = c(-0.2,0.48), lag.max = 20, pacf=T)
+plot(pacf, x=1:20, type = "h", xlab = "h",ylab = "Partial Autocorrelation", main = "AR(2) Population PACF")
+abline(h = 0)
+
+```
+
+$$X_t + 1.8X_{t−1} + 0.81X_{t−2} = Z_t$$
+```{r}
+# ACF and plot
+acf = ARMAacf(ar = c(-1.8,-0.81),lag.max = 20)
+acf = acf[2:21]
+plot(acf, x=1:20, type = "h", xlab = "h", ylab = "Autocorrelation", main = "AR(2) Population ACF")
+abline(h = 0)
+
+# PACF and plot
+pacf = ARMAacf(ar = c(-1.8,-0.81), lag.max = 20, pacf=T)
+plot(pacf, x=1:20, type = "h", xlab = "h",ylab = "Partial Autocorrelation", main = "AR(2) Population PACF")
+abline(h = 0)
+```
+
+3.4 Compute the ACF and PACF of the AR(2) process $X_t=0.8X_{t−2}+Zt$, ${Z_t}∼WN(0,σ^2)$
+This problem was sovled in another document. The R code here is a verification part. 
+```{r}
+# problem 3.4 --- verify the answers in R 
+rho_h = ARMAacf(ar = c(0,0.8), lag.max = 20) 
+round(rho_h,3)
+
+phi_hh = ARMAacf(ar = c(0,0.8), pacf=T)
+round(phi_hh,3)
+```
+
+3. This problem was sovled in another document. The R code here is a verification part. 
+```{r}
+# problem 3 --- verify the answers in R 
+psi_j = ARMAtoMA(ar=c(1.1,-0.3),lag.max = 5)
+round(psi_j,3)
+
+rho_h = ARMAacf(ar=c(1.1,-0.3), lag.max = 5)
+round(rho_h,3)
+
+phi_hh = ARMAacf(ar=c(1.1,-0.3), pacf=T)
+round(phi_hh,3)
+
+```
+
+4. This problem was sovled in another document. The R code here is a verification part. 
+```{r}
+# problem 4 --- verify the answers in R 
+psi_j = ARMAtoMA(ar= 0.6, ma = -0.2, lag.max = 5)
+round(psi_j,3)
+```
+
+5.This problem was sovled in another document. The R code here is a verification part. 
+```{r}
+# problem 5 --- verify the answers in R 
+rho_h = ARMAacf(ma=c(0.8,-0.15))
+round(rho_h,3)
+
+phi_hh = ARMAacf(ma=c(0.8,-0.15),lag.max = 5, pacf=T)
+round(phi_hh,3)
+
+```
+
+
+
+
+
+
