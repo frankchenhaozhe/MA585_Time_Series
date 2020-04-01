@@ -1,0 +1,38 @@
+---
+title: "Untitled"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(xts)
+library(forecast)
+library(dplyr)
+library(lubridate)
+```
+
+```{r}
+fund_ts <- function(df){
+  df1 <- read.csv(df)[,c('Date','Adj.Close')] %>% mutate(Date = as_date(Date))
+  fund <- xts(df1[,-1], order.by = as.Date(df1[,1]), '%m/%d%Y')
+  return(fund)
+}
+
+snp500 <- fund_ts('SnP500.csv')
+```
+
+```{r warning=F}
+
+plot(snp500, type="l")
+
+# montly means for snp500
+snp500m <- matrix(snp500, ncol=12,byrow=TRUE)
+m_means <- apply(snp500m,2,mean)
+plot(col.means,type="b", main="Monthly Means Plot for snp500", xlab="Month", ylab="Mean")
+
+# weekly means for snp500
+snp500w <- matrix(snp500, ncol=52, byrow=TRUE)
+w_means <- apply(snp500w,2,mean)
+plot(w_means,type="b", main="Weekly Means Plot for snp500", xlab="Week", ylab="Mean")
+
+```
