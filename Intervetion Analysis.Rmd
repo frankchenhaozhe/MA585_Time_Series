@@ -1,0 +1,42 @@
+---
+title: "Intervention Analysis"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(tsoutliers,expsmooth,fma,xts,lubridate)
+```
+
+```{r}
+snp500 <- read.csv('./Data/SnP500.csv')[,c('Date','Adj.Close')] %>% mutate(Date = as_date(Date))
+ts <- xts(snp500[,-1], order.by = df1[,1], '%m/%d%Y')
+s4 <- setClass(snp500)
+plot(ts)
+
+## Identify Outliers
+
+outlier<- tsoutliers::tso(ts,types = c("AO","LS","TC"), maxit.iloop=10)
+outlier
+plot(outlier)
+
+n <- length(chicken)
+
+## Create Outliers Regressors for ARIMAX
+## Two type of outliers Level Shift (LS) and Temprory Change (TC)
+
+mo.ls <- outliers("LS", 12)
+ls <- outliers.effects(mo.ls, n)
+
+mo.tc <- outliers("TC", 20)
+tc <- outliers.effects(mo.tc, n)
+
+xreg.outliers <- cbind(ls,tc)
+
+
+## Create Arimax using Outliers as regressor variables.
+
+arima.model <- auto.arima(chicken,xreg=xreg.outliers)
+arima.model
+```
+

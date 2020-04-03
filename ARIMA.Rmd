@@ -7,6 +7,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(xts)
 library(forecast)
+library(tseries)
 ```
   
 ```{r}
@@ -33,54 +34,65 @@ stock <- function(df){
 
 ```{r}
 # load the returns
-SnP500_r <- r('SnP500.csv')
-SnP500 <- stock('SnP500.csv') 
-
+SnP500_r <- r('./Data/SnP500.csv')
+SnP500 <- stock('./Data/SnP500.csv') 
+# plot the series 
+plot(SnP500)
 # Conduct ADF test on log returns series
 print(adf.test(SnP500_r))
+
+z <- decompose(SnP500, type="additive")
+plot(z)
 
 ```
 
 ```{r}
 
 # Apply the ACF and PACF functions
-par(mfrow = c(1,1))
-acf_r <- acf(SnP500_r, main='ACF Plot', lag.max=100)
-pacf_r <- pacf(SnP500_r, main='PACF Plot', lag.max=100)
-TSA::eacf(SnP500_r)
-# ARIMA(0,0,0)
-# it means the data is white noise 
+par(mfrow = c(2,2))
+acf_r <- acf(SnP500, main='ACF Plot', lag.max=100)
+pacf_r <- pacf(SnP500, main='PACF Plot', lag.max=100)
+TSA::eacf(SnP500)
+# ARIMA(1,0,0)
 
 ```
 
 ```{r}
 
 # Split the dataset in two parts - training and testing
-breakpoint <- floor(nrow(SnP500_r)*(2/3))
+breakpoint <- floor(nrow(SnP500_r)*(4/5))
+par(mfrow = c(2,2))
+acf_r <- acf(SnP500[1:breakpoint], main='ACF Plot', lag.max=100)
+pacf_r <- pacf(SnP500[1:breakpoint], main='PACF Plot', lag.max=100)
 
-acf_r <- acf(SnP500_r[1:breakpoint], main='ACF Plot', lag.max=100)
-pacf_r <- pacf(SnP500_r[1:breakpoint], main='PACF Plot', lag.max=100)
+fit <- arima(SnP500[1:breakpoint], order = c(1,0,0), include.mean = T)
+acf(fit$residuals)
+pacf(fit$residuals)
+# no obvious auto-correlations among residuals
+
+arima.forecast <- forecast(fit, h = 1, level=95)
+summary(arima.forecast)
 
 ```
 
 ```{r}
 
-# SnP500_r[breakpoint]
+# SnP500[breakpoint+1]
 
 # Initialzing an xts object for Actual log returns
-Actual_series <- xts(0, as.Date("2017-05-02","%Y-%m-%d"))
+Actual_series <- xts(0, as.Date("2017-12-27","%Y-%m-%d"))
 # Initialzing a dataframe for the forecasted return series
 forecasted_series <- data.frame(Forecasted = numeric())
-n <- nrow(SnP500_r)
+n <- nrow(SnP500)
 
 for (b in breakpoint:(n-1)){
   
   # form the training dataset and the test dataset based on the dynamic breakpoint.
-  r_train <- SnP500_r[1:b]
-  r_test <- SnP500_r[(b+1):n]
+  train <- SnP500[1:b]
+  test <- SnP500[(b+1):n]
  
    # Summary of the ARIMA model using the determined (p,d,q) parameters
-  fit <- arima(r_train, order = c(0,0,0), include.mean = T)
+  fit <- arima(train, order = c(1,0,0), include.mean = T)
   
   # Forecasting the log returns, 95% prediction interval 
   arima.forecast <- forecast(fit, h = 1, level=95)
@@ -90,7 +102,7 @@ for (b in breakpoint:(n-1)){
   colnames(forecasted_series) = c("Forecasted")
   
   # Creating a series of actual returns for the forecasted period
-  Actual_return <- SnP500_r[b+1]
+  Actual_return <- SnP500[b+1]
   Actual_series <- c(Actual_series,xts(Actual_return))
   rm(Actual_return)
 }

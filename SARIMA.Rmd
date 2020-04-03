@@ -12,21 +12,36 @@ library(lubridate)
 ```
 
 ```{r}
-fund_ts <- function(df){
-  df1 <- read.csv(df)[,c('Date','Adj.Close')] %>% mutate(Date = as_date(Date))
-  fund <- xts(df1[,-1], order.by = as.Date(df1[,1]), '%m/%d%Y')
-  return(fund)
-}
+# df1 <- read.csv('./Data/SnP500.csv')[,c('Date','Adj.Close')] %>% mutate(Date = as_date(Date))
+# df1$year <- year(df1$Date)
+# df1$month <- month(df1$Date)
+# df2 <- df1 %>% group_by(year, month) %>% summarise(avg_m = mean(Adj.Close))
+# ts_m <- ts(df2[,3], start = c(2014,1), frequency = 12)
+# ts_m_avg <- ts_m %>% matrix(ncol=12, byrow = T) %>% apply(2, mean) #
+# plot(ts_m_avg,type="b", main="Monthly Means Plot for snp500", xlab="Month", ylab="Mean")
+# The plot showed clear monthly effects
+```
 
-snp500 <- fund_ts('SnP500.csv')
+
+```{r}
+df <- read.csv('./Data/snp500_monthly.csv')
+ts_m <- ts(df$Adj.Close, start = c(1927, 12), frequency = 12)
+head(ts_m)
+tail(ts_m)
+ts_m_avg <- ts_m %>% matrix(ncol=12, byrow = T) %>% apply(2, mean) 
+
+read.csv('./Data/SnP500.csv')
+
 ```
 
 ```{r warning=F}
 
+par(mfrow=c(2,2))
+
 plot(snp500, type="l")
 
 # montly means for snp500
-snp500m <- matrix(snp500, ncol=12,byrow=TRUE)
+snp500m <- matrix(snp500, ncol=12, byrow=TRUE)
 m_means <- apply(snp500m,2,mean)
 plot(col.means,type="b", main="Monthly Means Plot for snp500", xlab="Month", ylab="Mean")
 
@@ -36,3 +51,7 @@ w_means <- apply(snp500w,2,mean)
 plot(w_means,type="b", main="Weekly Means Plot for snp500", xlab="Week", ylab="Mean")
 
 ```
+
+
+
+
