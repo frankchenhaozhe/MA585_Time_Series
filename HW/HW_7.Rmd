@@ -1,0 +1,161 @@
+---
+title: 'HW 7'
+output: html_document
+author: 'Haozhe Chen'
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(forecast)
+library(dplyr)
+library(tseries)
+```
+
+3. Simulate an AR(2) process with phi_1 = 1.5, phi_2 =  -0.75, and mu = 100. Simulate 100 values, but set aside the last 10 values to compare forecasts to actual values.
+(a) Using the first 90 observations in the series, find the MLE of the model parameters. Are the estimates comparable to the true values?
+(b) Use the fitted model to forecast the 10 future values and obtain 95% forecast intervals.
+(c) What percentage of the observed values are covered by the forecast intervals?
+(d) Simulate a new sample data of the same size from the sample model and repeat steps (a),(b) and (c)
+```{r}
+set.seed(1)
+# simulate the process
+AR_sim = arima.sim(n=100, model = list(order = c(2,0,0), ar=c(1.5, -0.75))) + 100 # plus mu
+# train the data
+train = AR_sim[1:90]
+dev = AR_sim[91:100]
+# fit the model and apply forecast function
+fit_sim = arima(train,order = c(2,0,0))
+forcaset_sim = forecast(fit_sim, h = 10)
+plot(forcaset_sim, main="AR(2) Forecasts from ARIMA(2,0,0)")
+cat('The 95% forecasts intervals\n lower:', as.numeric(forcaset_sim$lower[, '95%']), '\n upper:', as.numeric(forcaset_sim$upper[, '95%']) ) 
+
+df = cbind(test, forcaset_sim$lower[, '95%'], forcaset_sim$upper[, '95%']) %>% as.data.frame()
+colnames(df) = c('observed' , 'lower',  'upper')
+df %<>%  mutate(covered_by_CI = if_else(observed>lower & observed<upper, 1, 0))
+p = as.numeric((df %>% filter(covered_by_CI == 1)  %>% count()) / length(df$observed))
+cat("\nThe percentage of the observed values are covered by the forecast intervals:", p)
+err = dev - forcaset_sim$mean  # errors 
+mae = mean(abs(err))  # mean absolute error
+rmse = sqrt(mean(err^2)) # root mean square error
+mape = mean (abs(err/test*100)) # mean absolute percentage error
+cat('\nMAE:', mae)
+cat('\nRMSE:', rmse)
+cat('\nMAPE:', mape)
+
+```
+Repeat the process with a MA(2) process
+```{r }
+set.seed(1)
+# simulate a process
+AR_sim = arima.sim(n=100, model = list(order = c(0,0,2), ma=c(0.8, 0.55))) + 100 # plus mu
+# train the data
+train = AR_sim[1:90]
+dev = AR_sim[91:100]
+# fit the model and apply forecast function
+fit_sim = arima(train,order = c(0,0,2))
+forcaset_sim = forecast(fit_sim, h = 10)
+plot(forcaset_sim, main="MA(2) Forecasts from ARIMA(0,0,2)")
+cat('The 95% forecasts intervals\n lower:', as.numeric(forcaset_sim$lower[, '95%']), '\n upper:', as.numeric(forcaset_sim$upper[, '95%']) ) 
+
+df = cbind(test, forcaset_sim$lower[, '95%'], forcaset_sim$upper[, '95%']) %>% as.data.frame()
+colnames(df) = c('observed' , 'lower',  'upper')
+df %<>%  mutate(covered_by_CI = if_else(observed>lower & observed<upper, 1, 0))
+p = as.numeric((df %>% filter(covered_by_CI == 1)  %>% count()) / length(df$observed))
+cat("\nThe percentage of the observed values are covered by the forecast intervals:", p)
+err = dev - forcaset_sim$mean  # errors 
+mae = mean(abs(err))  # mean absolute error
+rmse = sqrt(mean(err^2)) # root mean square error
+mape = mean (abs(err/test*100)) # mean absolute percentage error
+cat('\nMAE:', mae)
+cat('\nRMSE:', rmse)
+cat('\nMAPE:', mape)
+```
+
+5. Consider the Johnson and Johnson Data from the 'HW_6'.
+(a) Carry out appropriate Holt-Winters forecast for the next eight values. List and plot the forecasts along with the forecast intervals.
+(b) Identify an appropriate ARIMA model and use the model to forecast for the next eight values. List and plot the forecasts along with the forecast intervals.
+(c) Set aside the last eight observations in the data set as the validations sample and using the remaining data as the training sample, predict the eight observations. Compute RMSE, MAE and MAPE criteria of forecast comparison. What is your conclusion?
+```{r}
+
+set.seed(1)
+par(mfrow = c(2,2))
+
+# fit HoltWinters model & apply forecast function
+HW = HoltWinters(JohnsonJohnson,seasonal='multiplicative')
+forcaset_HW = forecast(HW, 8)
+plot(forcaset_HW)
+cat('(a):')
+cat('The 95% forecasts intervals of HoltWinters\n lower:', as.numeric(forcaset_HW$lower[, '95%']), '\n upper:', as.numeric(forcaset_HW$upper[, '95%']) )
+
+# print(adf.test(JohnsonJohnson))
+# differencing the series to make it stationary
+JohnsonJohnson_diff1 = diff(JohnsonJohnson, 1)
+# print(adf.test(JohnsonJohnson_diff1))
+
+# Apply the ACF and PACF functions 
+# par(mfrow = c(2,2))
+# acf(JohnsonJohnson_diff1, main='ACF Plot of JohnsonJohnson_diff1', lag.max=20)
+# pacf(JohnsonJohnson_diff1, main='PACF Plot of JohnsonJohnson_diff1', lag.max=20)
+# ACF decays to zero, PACF cuts-off
+# Apply the eacf to identify the orders
+# TSA::eacf(JohnsonJohnson_diff1)
+# Try ARIMA(2, 1, 0)
+cat('\n(b):')
+cat('According to the ACF, PACF, and EACF plots, The process could be identified as an ARIMA(2,1,0) model \n')
+fit_arima = arima(JohnsonJohnson_diff1, order = c(2,1,0))
+forcaset_arima = forecast(fit_arima, 8)
+plot(forcaset_arima, main="Forecasts from ARIMA(2,1,0)")
+cat('The 95% forecasts intervals of ARIMA(2,1,0)\n lower:', as.numeric(forcaset_arima$lower[, '95%']), '\n upper:', as.numeric(forcaset_arima$upper[, '95%']) )
+
+
+
+train = JohnsonJohnson[1:(length(JohnsonJohnson)-8)]
+train = ts(train, frequency = 4, start = c(1960, 1))
+test = JohnsonJohnson[(length(JohnsonJohnson)-8+1): length(JohnsonJohnson)]
+test = ts(test, frequency = 4, start = c(1979, 1))
+# this time try HoltWinters forecast, becasue the series shows seasonality
+HW1 = HoltWinters(train, seasonal='multiplicative')
+forcaset_HW1 = forecast(train, 8)
+plot(forcaset_HW1, main = 'Forecasts from HoltWinters of for testing data')
+err = test - forcaset_HW1$mean  # errors 
+mae = mean(abs(err))  # mean absolute error
+rmse = sqrt(mean(err^2)) # root mean square error
+mape = mean (abs(err/test*100)) # mean absolute percentage error
+cat('\n(c):The RMSE, MAE and MAPE criteria of HoltWinters forecast')
+cat('\nMAE:', mae)
+cat('\nRMSE:', rmse)
+cat('\nMAPE:', mape)
+
+# conduct ARIMA forecast
+# print(adf.test(train))
+# differencing the series to make it stationary
+train_diff1 = diff(train)
+# print(adf.test(train_diff1))
+
+# Apply the ACF and PACF functions 
+# par(mfrow = c(2,2))
+# acf(train_diff1, main='ACF Plot of train_diff1', lag.max=20)
+# pacf(train_diff1, main='PACF Plot of train_diff1', lag.max=20)
+# ACF decays to zero, PACF cuts-off
+# Apply the eacf to identify the orders
+# TSA::eacf(train_diff1)
+# Try ARIMA(0, 1, 0)
+fit_arima1 = arima(train_diff1, order = c(0,1,0))
+forcaset_arima1= forecast(fit_arima1, 8)
+plot(forcaset_arima1, main="Forecasts from ARIMA(0,1,0) for testing data")
+err1 = test - forcaset_arima1$mean  # errors 
+mae1 = mean(abs(err1))  # mean absolute error
+rmse1 = sqrt(mean(err1^2)) # root mean square error
+mape1 = mean (abs(err1/test*100)) # mean absolute percentage error
+cat('\nThe RMSE, MAE and MAPE criteria of ARIMA(0,1,0) forecast')
+cat('\nMAE:', mae1)
+cat('\nRMSE:', rmse1)
+cat('\nMAPE:', mape1)
+cat('\nConclusion: For this series, HW forecasting is much better than ARIMA forecasting due to its seansonalities')
+
+```
+
+
+
+
+
