@@ -17,16 +17,21 @@ library(tseries)
 (c) What percentage of the observed values are covered by the forecast intervals?
 (d) Simulate a new sample data of the same size from the sample model and repeat steps (a),(b) and (c)
 ```{r}
-set.seed(1)
+set.seed(2020)
 # simulate the process
 AR_sim = arima.sim(n=100, model = list(order = c(2,0,0), ar=c(1.5, -0.75))) + 100 # plus mu
+AR_auto = auto.arima(AR_sim)
+cat('Carry out the estimation of the parameters by MLE:\n')
+summary(AR_auto)
+
 # train the data
 train = AR_sim[1:90]
-dev = AR_sim[91:100]
+test = AR_sim[91:100]
 # fit the model and apply forecast function
 fit_sim = arima(train,order = c(2,0,0))
 forcaset_sim = forecast(fit_sim, h = 10)
 plot(forcaset_sim, main="AR(2) Forecasts from ARIMA(2,0,0)")
+cat('Predictions:\n')
 cat('The 95% forecasts intervals\n lower:', as.numeric(forcaset_sim$lower[, '95%']), '\n upper:', as.numeric(forcaset_sim$upper[, '95%']) ) 
 
 df = cbind(test, forcaset_sim$lower[, '95%'], forcaset_sim$upper[, '95%']) %>% as.data.frame()
@@ -34,7 +39,7 @@ colnames(df) = c('observed' , 'lower',  'upper')
 df %<>%  mutate(covered_by_CI = if_else(observed>lower & observed<upper, 1, 0))
 p = as.numeric((df %>% filter(covered_by_CI == 1)  %>% count()) / length(df$observed))
 cat("\nThe percentage of the observed values are covered by the forecast intervals:", p)
-err = dev - forcaset_sim$mean  # errors 
+err = test - forcaset_sim$mean  # errors 
 mae = mean(abs(err))  # mean absolute error
 rmse = sqrt(mean(err^2)) # root mean square error
 mape = mean (abs(err/test*100)) # mean absolute percentage error
@@ -47,14 +52,19 @@ Repeat the process with a MA(2) process
 ```{r }
 set.seed(1)
 # simulate a process
-AR_sim = arima.sim(n=100, model = list(order = c(0,0,2), ma=c(0.8, 0.55))) + 100 # plus mu
+MA_sim = arima.sim(n=100, model = list(order = c(0,0,2), ma=c(0.8, 0.55))) + 100 # plus mu
+MA_auto = auto.arima(MA_sim, method = c("ML"))
+cat('Carry out the estimation of the parameters by MLE:\n')
+summary(MA_auto)
+
 # train the data
-train = AR_sim[1:90]
-dev = AR_sim[91:100]
+train = MA_sim[1:90]
+test = MA_sim[91:100]
 # fit the model and apply forecast function
 fit_sim = arima(train,order = c(0,0,2))
 forcaset_sim = forecast(fit_sim, h = 10)
 plot(forcaset_sim, main="MA(2) Forecasts from ARIMA(0,0,2)")
+cat('Predictions:\n')
 cat('The 95% forecasts intervals\n lower:', as.numeric(forcaset_sim$lower[, '95%']), '\n upper:', as.numeric(forcaset_sim$upper[, '95%']) ) 
 
 df = cbind(test, forcaset_sim$lower[, '95%'], forcaset_sim$upper[, '95%']) %>% as.data.frame()
@@ -62,7 +72,7 @@ colnames(df) = c('observed' , 'lower',  'upper')
 df %<>%  mutate(covered_by_CI = if_else(observed>lower & observed<upper, 1, 0))
 p = as.numeric((df %>% filter(covered_by_CI == 1)  %>% count()) / length(df$observed))
 cat("\nThe percentage of the observed values are covered by the forecast intervals:", p)
-err = dev - forcaset_sim$mean  # errors 
+err = test - forcaset_sim$mean  # errors 
 mae = mean(abs(err))  # mean absolute error
 rmse = sqrt(mean(err^2)) # root mean square error
 mape = mean (abs(err/test*100)) # mean absolute percentage error
@@ -88,26 +98,25 @@ cat('(a):')
 cat('The 95% forecasts intervals of HoltWinters\n lower:', as.numeric(forcaset_HW$lower[, '95%']), '\n upper:', as.numeric(forcaset_HW$upper[, '95%']) )
 
 # print(adf.test(JohnsonJohnson))
-# differencing the series to make it stationary
-JohnsonJohnson_diff1 = diff(JohnsonJohnson, 1)
-# print(adf.test(JohnsonJohnson_diff1))
+# stablize the series
+stb_jj = diff(JohnsonJohnson) 
+# plot(stb_jj)
+# print(adf.test(stb_jj))
 
 # Apply the ACF and PACF functions 
 # par(mfrow = c(2,2))
-# acf(JohnsonJohnson_diff1, main='ACF Plot of JohnsonJohnson_diff1', lag.max=20)
-# pacf(JohnsonJohnson_diff1, main='PACF Plot of JohnsonJohnson_diff1', lag.max=20)
+# acf(stb_jj, main='ACF Plot of stb_jj', lag.max=20)
+# pacf(stb_jj, main='PACF Plot of stb_jj', lag.max=20)
 # ACF decays to zero, PACF cuts-off
 # Apply the eacf to identify the orders
-# TSA::eacf(JohnsonJohnson_diff1)
-# Try ARIMA(2, 1, 0)
+# TSA::eacf(stb_jj)
+# Try ARIMA(6, 1, 0)
 cat('\n(b):')
-cat('According to the ACF, PACF, and EACF plots, The process could be identified as an ARIMA(2,1,0) model \n')
-fit_arima = arima(JohnsonJohnson_diff1, order = c(2,1,0))
+cat('According to the ACF, PACF, and EACF plots, The process could be identified as an ARIMA(6, 1, 0) model \n')
+fit_arima = Arima(JohnsonJohnson, order = c(6, 1, 0), lambda=0)
 forcaset_arima = forecast(fit_arima, 8)
-plot(forcaset_arima, main="Forecasts from ARIMA(2,1,0)")
-cat('The 95% forecasts intervals of ARIMA(2,1,0)\n lower:', as.numeric(forcaset_arima$lower[, '95%']), '\n upper:', as.numeric(forcaset_arima$upper[, '95%']) )
-
-
+plot(forcaset_arima, main="Forecasts from ARIMA(6,1,0)")
+cat('The 95% forecasts intervals of ARIMA(6,1,0)\n lower:', as.numeric(forcaset_arima$lower[, '95%']), '\n upper:', as.numeric(forcaset_arima$upper[, '95%']) )
 
 train = JohnsonJohnson[1:(length(JohnsonJohnson)-8)]
 train = ts(train, frequency = 4, start = c(1960, 1))
@@ -136,18 +145,18 @@ train_diff1 = diff(train)
 # par(mfrow = c(2,2))
 # acf(train_diff1, main='ACF Plot of train_diff1', lag.max=20)
 # pacf(train_diff1, main='PACF Plot of train_diff1', lag.max=20)
-# ACF decays to zero, PACF cuts-off
+# ACF decays to zero, PACF decays to zero
 # Apply the eacf to identify the orders
 # TSA::eacf(train_diff1)
-# Try ARIMA(0, 1, 0)
-fit_arima1 = arima(train_diff1, order = c(0,1,0))
+# Try ARIMA(5, 1, 0)
+fit_arima1 = Arima(train, order = c(5,1,0), lambda=0)
 forcaset_arima1= forecast(fit_arima1, 8)
-plot(forcaset_arima1, main="Forecasts from ARIMA(0,1,0) for testing data")
+plot(forcaset_arima1, main="Forecasts from ARIMA(5,1,0) for testing data")
 err1 = test - forcaset_arima1$mean  # errors 
 mae1 = mean(abs(err1))  # mean absolute error
 rmse1 = sqrt(mean(err1^2)) # root mean square error
 mape1 = mean (abs(err1/test*100)) # mean absolute percentage error
-cat('\nThe RMSE, MAE and MAPE criteria of ARIMA(0,1,0) forecast')
+cat('\nThe RMSE, MAE and MAPE criteria of ARIMA(5,1,0) forecast')
 cat('\nMAE:', mae1)
 cat('\nRMSE:', rmse1)
 cat('\nMAPE:', mape1)
