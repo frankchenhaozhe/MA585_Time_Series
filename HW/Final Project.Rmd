@@ -1,5 +1,5 @@
 ---
-title: 'Forecasting the asset value of S&P 500 '
+title: 'Forecasting of the asset value of S&P500 '
 author: 'Haozhe Chen'
 output: pdf_document
 latex_engine: xelatex
@@ -22,74 +22,76 @@ train_date <- train_orig$Date
 test_date <- test_orig$Date
 lag <- nrow(test_orig)
 ```
+## Contents
+- Abstract\par
+- Introduction \par
+- Date preparation\par
+- Forecasting models\par
+-- ARIMA\par
+-- SARIMA\par
+-- Holt-winters\par
+- Metric Deisgn\par
+- Model Comparison 
+- Conclusions\par
 
 ## Abstract
-The financial markets contain a plethora of statistical patterns. The behavior of those patterns is similar with the behavior of the natural phenomena patterns. That means that both are affected by unknown and unstable variables. Which leads to high unpredictability and volatility. That makes hard to forecast future behavior.
+The financial markets contain a plethora of statistical patterns. The behavior of those patterns is similar to the behavior of the natural phenomena patterns. That means that both are affected by unknown and unstable variables. Which leads to high unpredictability and volatility. That makes hard to forecast future behavior.\par
 
 ## Introduction
-\par The purpose of this project is to analyze and compare different time series model for the financial forecasting of the asset value of S&P 500. The data source is from Yahoo Finance, the path is where you can find the data: \par 'https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC'  
-\par Instead of forecasting the asset value directly, I have focused on the on the cash flows, and reconclied the projected flows to the asset by the capital gain rate. Therefore, the model performance evaluation here is not only based on the metrics, such as MAPE, but also evaluated by the percentage difference on the average asset forecasting, which is from a practical point of view.
-\par The data is from 2018-01-01 to 2020-3-31. In the modelling part, I use the data before 2020 as the train data and data after 2020 as testing data for model comparision. I used the ARIMA as the baseline model, then compared the SARIMA model and HoltWinter model. When the number of forecasted series is big, the ARIMA forecasting converges to the mean, which is not robust. SARIMA could capture the seasonality, but it may has overfitting problems due to the complexity and variability of the data. It turns out the HoltWinter is better than the ARIMA and SARIMA. 
+The purpose of this project is to analyze and compare different time series models for the financial forecasting of the asset value of the S&P 500. The data source is from Yahoo Finance, the path is where you can find the data:
+\par 'https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC' \par
+Instead of forecasting the asset value directly, I have focused on the net flows and reconciled the projected flows to the asset by the capital gain rate. Therefore, the model performance evaluation here is not only based on the metrics, such as MAPE but also evaluated by the percentage difference on the average asset forecasting, which is from a practical point of view.\par
+The data is from 2018-01-01 to 2020-3-31. In the modeling part, I use the data before 2020 as the train data and data after 2020 as testing data for model comparison. I used the ARIMA as the baseline model, then compared the SARIMA model and HoltWinter model. When the number of forecasted series is big, the ARIMA forecasting converges to the mean, which is not robust. SARIMA could capture the seasonality, but it may have overfitting problems due to the complexity and variability of the data. It turns out the HoltWinter is better than the ARIMA and SARIMA.\par 
 
-## Procedures
-- Data preparation\par
-- ARIMA modelling\par
-- SARIMA modelling\par
-- Holtwinter modelling\par
-- Model comparison\par
-
-### Date preparation
-### Date description
+## Date preparation
+- Date description\par
+Here is how the original dataset looks like. The useful variables here are Date, Adj Close, Volume. \par 
+Date — Date ranges from 2018-01-02 to 2020-3-31. The dataset does not include the weekends and holidays, so the dates are not consecutive.\par
+Adj Close — The adjusted close price, it was adjusted after dividend and fund split. It represents the standardized daily net asset value. \par
+Volume — The total number of shares that are traded (bought and sold). \par
 ```{r echo=F}
 kable(head(SNP500_orig),booktabs = T,align = "c")%>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
 ```
-\par Here is how the original dataset looks like. The useful variables here are 'Date', 'Adj Close', 'Volume'. \par 
-- Date: Date ranges from 2018-01-02 to 2020-3-31. The dataset does not include the weekends and holidays, so the dates are not consecutive.\par
-- Adj Close: The adjusted close price, it was ajusted after dividend and fund split. It represents the standardized daily net asset value. \par
-- Volume: The total number of shares that are actually traded (bought and sold) during that specific day. 
-
-### Date preparation
-This is one of the main parts of this project, the orginal data are not consecutive, and lack of useful information. For example, the flow data is not availble. Hence, I have implemented certain manipulations and computations to process the data, get the information that I want, and define the metric to evaluate the modelling results(The reason why I use functions is that I want to make it reproducible to other stocks). I have written several functions and wrapped them into the file 'functions_EDA.R', you could run and play with it. Here are some details of how I processed the data.\par
-- Use 'Adj Close' as Net Asset Value(NAV), multiplied by the number of volumn to get the asset value, differencing the asset value to get the daily net flows. Scale the asset value and the daily net flows as millions. \par
-- Add time ticks, including year, months, weeks, and weekdays to the dataframe.\par
-- Label outliers: there are many spikes in the flows. I used lowess to fit the flow and then use the residual
-to check for the outlier. I calculated the z score of the absolute value of residuals. picked 'z' greater than 3 as outliers, then replaced outliers by the smoothed value from lowess. The smoothing is using cloest 30 data points, approximately 1.5 month. This smoothing factor is achieved by empirical observations on the stock. It might not be optimal, but useful, as least it can avoid the impact of the those spikes on the forecasted value.
-- Adding 5 point moving averge flow and 21 moving averge flow to the data, since on averge, there are 5 days a week and 21 days a month in the dataset. The EDA is done by the time ticks, but in order to save space, I won't include the EDA here. \par
-- Eliminate useless columns and clean the data. \par
-- Build the evaluation metric. First I wrote a function to compute the reconclied asset.In order to illustrate my computatation, I use $R$ to denote the reconciled asset, $r$ to denote the capital gain rate, $d$ denote the de-outliered flow, $f$ denote the original flow. The formula here are $R_i = R_{i-1}e^{r_i} + d_i$, and $r_i=ln(f_i/f_{i-1})$. Then I use another function to compute the forecasted asset based on the forecasted flows, the percentage difference on the average asset forecasting is caculated by $\frac{1}{n}\sum_i^n (Forecasted_i - Actual_i)/Actual_i$. Here Actual refers to the de-outliered flow We can also use the real flow for comparison.\par 
-```{r}
+- Date preparation\par
+This is one of the main parts of this project, the original data are not consecutive, and lack of useful information. For example, the flow data is not available. Hence, I have implemented certain computations to process the data, got the information that I want. I have written several functions and wrapped them into the file 'functions_EDA.R', feel free to play with it. Here are some details of how I have processed the data.\par
+1. Use 'Adj Close' as Net Asset Value(NAV), multiplied by the number of volume to get the asset value, differencing the asset value to get the daily net flows. Scale the asset value and the daily net flows as millions. \par
+2. Add time ticks, including year, months, weeks, and weekdays to the data frame.\par
+3. Label outliers: there are many spikes in the flows. I used lowess to fit the flow and then use the residual
+to check for the outlier. I calculated the z score of the absolute value of residuals. picked 'z' greater than 3 as outliers, then replaced outliers by the smoothed value from lowess. The smoothing is using the closest 30 data points, approximately 1.5 months. This smoothing factor is achieved by empirical observations on the stock. It might not be optimal, but useful, as least it can avoid the impact of those spikes on the forecasted value.\par
+4. Adding 5 points moving average flow and 21 moving average flow to the data, since on average, there are 5 days a week and 21 days a month in the dataset. The EDA is done by the time ticks, but to save space, I won't include the EDA here. \par
+5. Eliminate useless columns and clean the data, get the following data frame.\par
+```{r echo=F}
 kable(head(SNP500 %>% dplyr::select(-year,-month,-week,-weekdays, -`Adj Close`)),booktabs = T,align = "c")%>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
 ```
-\par This is how the new dataset of S&P500 looks like, the unit of the data is million. The first row contians missing values due to the computations based on previous value, but it is not important for forecasting.
-
-### Data visualization
-The plots here give you a visualily comparison of how the data was processed. 
-The first plot is the adjusted close price (NAV), we could see that there are huge decrease around March, 2020, which might due to the pandemic of COVID-19, correspondingly, the flow around March, which observed from the second plot ossicilates deeper. Note that the flows on the plot were scaled by Z scores, and centered at different positions, in order for making comparsions. We could see that the de-outliered flow has less spikes, but in general, it was not smoothed, I just want to eliminate the impact of the spikes on forecasting. The third plot shows the comparison between de-outliered flows and smoothed flow. The two tails of smoothed data were not smoothed because the moving average at those points cannot be computed, so I replaced those points by the original net flow.
+- Data visualization\par
+The plots here give you a visualily comparison of how the data was processed.\par 
+The first plot is the adjusted close price (NAV), we could see that there are huge decreases around March 2020, which might due to the pandemic of COVID-19.\par
+Correspondingly, the flow around March, which observed from the second plot oscillates deeper. Note that the flows on the plot were scaled by Z scores, and centered at different positions, for making comparisons.We could see that the de-outlier flow has fewer spikes, but it was not smoothed, it is used to eliminate the impact of the spikes on forecasting.\par 
+The third plot shows the comparison between de-outlier flows and smoothed flow. The two tails of smoothed data were not smoothed because the moving average at those points cannot be computed, so I replaced those points by the original net flow.\par
 ```{r echo=F, warning=F}
 grid.arrange(p1,p2,p3,ncol=1)
 ```
 
-### ARIMA modelling of de_outliered flow
-```{r echo=FALSE,include=FALSE}
+## Forecasting models
+### ARIMA
+- Stationarity Test\par
+The variance of the flow series looks stable, so I won't use transformation. First test the stationary of the series.\par
+```{r echo=FALSE,warning=F}
 train <- xts(train_orig$de_outlier, order.by = train_date) %>% na.omit()
 test <- xts(test_orig$de_outlier, order.by = test_date)
-```
-- Test stationarity
-The variance of the flow series looks stable, so I won't use transformation. First test the stationary of the series.
-```{r warning=F, echo=F}
 # test the stationarity
 adf.test(train)
 cat('Number of differences required for a stationary series is', ndiffs(train), '\n')
 ```
-- Model Identification
-From the correlation plots, we could see that many of ACF and PACF are marginally significant, and they both decays to zero, thus it may has a lower ARMA order, it could be p=1, q=1. The PACF cuts-off at certain lag, so I want to compare ARIMA(1,0,1), ARIMA(1,0,0), ARIMA(2,0,0) and ARIMA(2,0,0), and the model returned from auto.arima().
+- Model Identification\par
+From the correlation plots, we could see that many ACF and PACF are marginally significant, and they both decay to zero, thus it may have a lower ARMA order, it could be p=1, q=1. The PACF cuts-off at certain lag, hence I compared ARIMA(1,0,1), ARIMA(1,0,0), ARIMA(2,0,0), ARIMA(2,0,0) , and the model returned from auto.arima().\par
 ```{r echo=FALSE}
 # identify the model from acf and pacf
 par(mfrow=c(1,2))
 acf(train, main=' ')
 pacf(train, main=' ')
 ```
-The AICc table ends up being with:
+The AICc table ends up being:\par
 ```{r echo=FALSE}
 # Compare ARIMA(1,0,1), ARIMA(1,0,0), ARIMA(2,0,0), ARIMA(3,0,0) and auto.arima()
 fit0 <- auto.arima(train)
@@ -105,14 +107,14 @@ fit4 <- Arima(train, order = c(3,0,0))
 # fit4$aicc
 
 c1 <- c('ARIMA(0,0,2)','ARIMA(1,0,1)', 'ARIMA(1,0,0)', 'ARIMA(2,0,0)','ARIMA(3,0,0)')
-c2 <- c(fit0$aicc, fit1$aicc, fit2$aicc, fit3$aicc, fit4$aicc)
+c2 <- c(fit0$aicc, fit1$aicc, fit2$aicc, fit3$aicc, fit4$aicc) %>% round(2)
 table <- cbind(c1,c2)
 colnames(table) <- c('Model','AICc')
 kable(table,booktabs = T,align = "c")%>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
    
 ```
 #### Model Evaluation
-\par It turns out that ARIMA(1,0,1), and ARIMA(3,0,0) have almost the same lowest AICc. Instead of plotting the ACF, and making conclusion by eyes, I implemented the Ljung-Box test. The plots show the p values of Ljung-Box test from lag 1 to lag 100, the dashed line is the 0.05. Since $H_o: \rho_1 = \rho_2 = ...=\rho_k=0$, we can make the decision that the residuals of ARIMA(3,0,0) is a white noise, whereas the residuals of ARIMA(1,0,1) is not.
+\par It turns out that ARIMA(1,0,1), and ARIMA(3,0,0) have almost the same lowest AICc. Instead of looking at the ACF, and making a conclusion by eyes, I implemented the Ljung-Box test. The plots show the p-values of the Ljung-Box test from lag 1 to lag 100, the dashed line is the 0.05. Since $H_o: \rho_1 = \rho_2 = ...=\rho_k=0$, we can make the decision that the residuals of ARIMA(3,0,0) is a white noise, whereas the residuals of ARIMA(1,0,1) is not.\par
 ```{r echo=F}
 
 par(mfrow=c(1,2))
@@ -136,91 +138,95 @@ ylim = c(0,1))
 abline(h = .05,lty = 2)
 # we can make the decision that the residuals is a white noise. use fit4 to forecasting
 ```
+When looking at the coefficient estimations, the 95% confidence interval does not across 0, hence we are safe about using ARIMA(3,0,0) for forecasting. \par
+```{r echo=FALSE}
+fit4
+```
 
-- Forecasting
-A drawback of ARIMA forecasting is that when the number of forecasting is big, the point forecasting value converges to the mean, but the result (MAPE) is not so bad. 
+- Forecasting\par
 ```{r echo=FALSE}
 fc_ARIMA <- forecast::forecast(fit4, h = lag)
 plot(fc_ARIMA)
-cat('The testing error of ARIMA forecasting \n')
-forecast::accuracy(fc_ARIMA, test)[2,c('RMSE','MAE','MAPE')] %>% round(2)
+result_ARIMA <- forecast::accuracy(fc_ARIMA, test)[2,c('RMSE','MAE','MAPE')] %>% round(2)
+cat('The testing errors of ARIMA forecasting are \n')
+result_ARIMA
+
 fc <- fc_ARIMA %>% as.data.frame()
 df <- test_orig %>% dplyr::mutate(de_outlier = fc$`Point Forecast`)
-cat('The percentage difference on the average asset from ARIMA forecasting is',100*(abs(eval_asset(df))),'%','\n')
+eval_asset_ARIMA <- round(100*(abs(eval_asset(df))),2)
 ```
 
 ### SARIMA
-\par We have already seen how ACF and PACF of de-outlier flow look like, the PACF displays some seasonalities, but it is hard to analyze seasonal trends based on the unsmoothed flow data due to the noisyness of the data. Hence I used the moving average data here to fit SARIMA model to see what happens. 
-
-\par Since the moving average smooths the data by computing average in certain range, it reduces the impact of spikes, and makes easier to find seasonalities.
-```{r echo=F}
+We have already seen how ACF and PACF of de-outlier flow look like, the PACF displays some seasonalities, but it is hard to analyze seasonal trends based on the unsmoothed flow data due to the noisiness of the data. Hence I used the 5 and 21 moving average data to fit the SARIMA model to see what happens. \par
+Since the moving average smooths the data by computing average in a certain range, it reduces the impact of spikes and makes easier to find seasonalities.\par
+```{r echo=F, warning=F, include=F}
 train <- xts(train_orig$ma_5, order.by = train_date) %>% na.omit()
 test <- xts(test_orig$ma_5, order.by = test_date)
-```
-```{r echo=F, warning=F, include=F}
 # test the stationarity
 adf.test(train)
 ndiffs(train)
 ```
-\par After doing the stationary test, let's take a look at the ACF and PACF plots.
-
+The data is stationary, I am not going to show the test.let's take a look at the ACF and PACF plots. I differenced the data by 1 lag and compared its ACF and PACF to the undifferenced series. It turns out the models could be $SARIMA(1,0,0)(0,0,1)_5$, $SARIMA(1,0,1)(0,0,1)_5$, $SARIMA(0,0,2)(0,0,1)_5$, $SARIMA(1,0,1)(1,1,1)_5$, $SARIMA(1,0,1)(0,1,2)_5$.\par
 ```{r echo=F}
 par(mfrow=c(2,2))
 acf(train, main='original')
 pacf(train,main='original')
 acf(na.omit(diff(train,5)), main= 'differenced')
 pacf(na.omit(diff(train,5)),main= 'differenced')
-
 ```
-```{r}
-# SARIMA(1,0,0)X(0,0,1)_5
-# SARIMA(1,0,1)X(0,0,1)_5
-# SARIMA(0,0,2)X(0,0,1)_5
-# SARIMA(1,0,1)X(1,1,1)_5
-# SARIMA(1,0,1)X(0,1,2)_5
+The AICc are shown below:\par
+```{r echo=F, warning=F}
 fit1 <- Arima(train,order=c(1,0,0), seasonal=list(order=c(0,0,1),period=5),lambda=0)
 fit2 <- Arima(train,order=c(1,0,1), seasonal=list(order=c(0,0,1),period=5),lambda=0)
 fit3 <- Arima(train,order=c(0,0,2), seasonal=list(order=c(0,0,1),period=5),lambda=0)
 fit4 <- Arima(train,order=c(1,0,1), seasonal=list(order=c(1,1,1),period=5),lambda=0)
 fit5 <- Arima(train,order=c(1,0,1), seasonal=list(order=c(0,1,2),period=5),lambda=0)
 
-fit1$aicc
-fit2$aicc
-fit3$aicc
-fit4$aicc
-fit5$aicc
-
-
+c1 <- c('SARIMA(1,0,0)(0,0,1)[5]','SARIMA(1,0,1)(0,0,1)[5]', 'SARIMA(0,0,2)(0,0,1)[5]', 'SARIMA(1,0,1)(1,1,1)[5]','SARIMA(1,0,1)(0,1,2)[5]')
+c2 <- c(fit1$aicc, fit2$aicc, fit3$aicc, fit4$aicc, fit5$aicc) %>% round(2)
+table <- cbind(c1,c2)
+colnames(table) <- c('Model','AICc')
+kable(table,booktabs = T,align = "c")%>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+```
+After making comparison, we check the $SARIMA(1,0,0)(0,0,1)_5$ and $SARIMA(0,0,2)(0,0,1)_5$ togther. \par
+I decided to use $SARIMA(0,0,2)(0,0,1)_5$ for forecasting.\par
+```{r echo=F}
 par(mfrow = c(1,2))
 
 B = NULL;
 for(i in 1:100) 
-B = c(B,Box.test(fit3$res, lag = i,type = "Ljung-Box")$p.value)
-plot(B,main = "Ljung-Box tests",ylab = "p-value",
+B = c(B,Box.test(fit1$res, lag = i,type = "Ljung-Box")$p.value)
+plot(B,main = "Ljung-Box SARIMA(1,0,0)(0,0,1)[5] ",ylab = "p-value",
 xlab = "lag",pch = 16,
 ylim = c(0,1))
 abline(h = .05,lty = 2)
 
 B = NULL;
 for(i in 1:100) 
-B = c(B,Box.test(fit4$res, lag = i,type = "Ljung-Box")$p.value)
-plot(B,main = "Ljung-Box tests",ylab = "p-value",
+B = c(B,Box.test(fit3$res, lag = i,type = "Ljung-Box")$p.value)
+plot(B,main = "Ljung-Box SARIMA(0,0,2)(0,0,1)[5]",ylab = "p-value",
 xlab = "lag",pch = 16,
 ylim = c(0,1))
 abline(h = .05,lty = 2)
+```
+
+- Forecasting\par
+Here is the result of forecasting from $SARIMA(0,0,2)(0,0,1)_5$.\par
+```{r echo=F}
 
 fc_SARIMA <- forecast::forecast(fit4, h = lag)
 plot(fc_SARIMA)
-forecast::accuracy(fc_SARIMA, test)
-
+result_SARIMA1 <- forecast::accuracy(fc_SARIMA, test)[2,c('RMSE','MAE','MAPE')] %>% round(2)
+cat('The testing errors of SARIMA(0,0,2)(0,0,1)[5] forecasting are: \n')
+result_SARIMA1
+fc <- fc_SARIMA %>% as.data.frame()
+df <- test_orig %>% dplyr::mutate(de_outlier = fc$`Point Forecast`)
+eval_asset_SARIMA1 <- round(100*(abs(eval_asset(df))),2)
 ```
-
-
-```{r}
-
+I have implemented the same process to the 21 moving average series. For this forecasting, I used $SARIMA(1,0,1)(3,1,0)_{21}$ The forecasting results are shown below.\par
+```{r echo=F, warning=F, include=F}
 train <- xts(train_orig$ma_21, order.by = train_date) %>% na.omit()
 test <- xts(test_orig$ma_21, order.by = test_date)
-
 # test the stationarity
 adf.test(train)
 ndiffs(train)
@@ -239,46 +245,96 @@ fit1 <- Arima(train,order=c(0,0,0), seasonal=list(order=c(0,0,1),period=21),lamb
 fit2 <- Arima(train,order=c(1,0,1), seasonal=list(order=c(1,1,1),period=21),lambda=0)
 fit3 <- Arima(train,order=c(1,0,1), seasonal=list(order=c(1,1,0),period=21),lambda=0)
 fit4 <- Arima(train,order=c(1,0,1), seasonal=list(order=c(0,1,1),period=21),lambda=0)
-
 fit1$aicc
 fit2$aicc
 fit3$aicc
 fit4$aicc
-
-fc_SARIMA <- forecast::forecast(fit4, h = lag)
-plot(fc_SARIMA)
-forecast::accuracy(fc_SARIMA,test)
 ```
 
-### HoltWinter
-```{r}
+```{r echo=F}
+fc_SARIMA <- forecast::forecast(fit3, h = lag)
+plot(fc_SARIMA)
+result_SARIMA2 <- forecast::accuracy(fc_SARIMA, test)[2,c('RMSE','MAE','MAPE')] %>% round(2)
+cat('The testing errors of SARIMA(1,0,1)(3,1,0)[21] forecasting are: \n')
+result_SARIMA2
+fc <- fc_SARIMA %>% as.data.frame()
+df <- test_orig %>% dplyr::mutate(de_outlier = fc$`Point Forecast`)
+eval_asset_SARIMA2 <- round(100*(abs(eval_asset(df))),2)
+```
+
+### HoltWinters
+The Holt-Winters forecasting algorithm allows users to smooth a time series exponentially and use that data to forecast areas of interest. Exponential smoothing assigns exponentially decreasing weights and values against historical data to decrease the value of the weight for the older data. In other words, more recent historical data is assigned more weight in forecasting than the older results. \par
+Since HoltWinters model assumes that the data has periods, I trimmed the train data into certain periods, I used 5 and 21 respectively as the frequency, and then fit the model. Here I make two forecastings with different trimmed training series, they are \par
+- Forecasting(1): de-oulier flow with frequency 5\par
+- Forecasting(2): de-oulier flow with frequency 21\par
+
+The forecasting plots and results are shown below:\par
+```{r echo=F, warning=F}
 # transform the train data into seasonal data with frequency 5
 # trim the data
-train_de_outlier <- ts(train_orig$de_outlier[4:503], frequency = 5)
+par(mfrow=c(2,1))
+train_de_outlier1 <- ts(train_orig$de_outlier[4:503], frequency = 5)
 test <- xts(test_orig$de_outlier, order.by = test_date)
-
-fit_hw1 <- HoltWinters(train_de_outlier, seasonal= 'additive')
+fit_hw1 <- HoltWinters(train_de_outlier1, seasonal= 'additive')
 fc_hw1 <- forecast::forecast(fit_hw1, h = lag)
-plot(fc_hw1)
+plot(fc_hw1, main = 'Forecasting(1)')
 
-train_ma_5 <- ts(c(0,0,train_orig$ma_5[2:503]), frequency = 21)
-fit_hw2 <- HoltWinters(train_ma_5, seasonal= 'additive')
+
+train_de_outlier2 <- ts(c(0,0,train_orig$de_outlier[2:503]), frequency = 21)
+test <- xts(test_orig$de_outlier, order.by = test_date)
+fit_hw2 <- HoltWinters(train_de_outlier2, seasonal= 'additive')
 fc_hw2 <- forecast::forecast(fit_hw2, h = lag)
-plot(fc_hw2)
+plot(fc_hw2, main = 'Forecasting(2)')
 
-train_ma_21 <- ts(train_orig$ma_21[4:503], frequency = 5)
-fit_hw3 <- HoltWinters(train_ma_21, seasonal= 'additive')
-fc_hw3 <- forecast::forecast(fit_hw3, h = lag)
-plot(fc_hw3)
+result_HW1 <- forecast::accuracy(fc_hw1, test)[2,c('RMSE','MAE','MAPE')] %>% round(2)
+cat('The testing errors of Holt_Winters Forecasting(1) are: \n')
+result_HW1
+fc1 <- fc_hw1 %>% as.data.frame()
+df1 <- test_orig %>% dplyr::mutate(de_outlier = fc1$`Point Forecast`)
+eval_asset_HW1 <- round(100*(abs(eval_asset(df1))),2)
 
-accuracy(fc_hw3, test)
+result_HW2 <- forecast::accuracy(fc_hw2, test)[2,c('RMSE','MAE','MAPE')] %>% round(2)
+cat('The testing errors of Holt_Winters Forecasting(2) are: \n')
+result_HW2
+fc2 <- fc_hw2 %>% as.data.frame()
+df2 <- test_orig %>% dplyr::mutate(de_outlier = fc2$`Point Forecast`)
+eval_asset_HW2 <- round(100*(abs(eval_asset(df2))),2)
 
 ```
 
-### ARIMAX
-```{r}
+## Metric Deisgn 
+Since the flows are always over billions, the metrics from flow forecasting models may not be interesting. Also, since the SARIMA model uses the smoothed series to forecast, simply comparing the modeling metrics among different models may not give us a good conclusion here. Instead, I wanted to compare the difference in average assets. The idea is reconciling the projected flows to the asset by the capital gain rate and comparing the difference with the reconciled flows and the actual de-outlier flows. \par
+In order to illustrate my computations, I use the following denotations:\par 
+- $R$: reconciled asset\par
+- $r$: capital gain rate\par
+- $d$: de-outlier flow\par
+- $f$: net flow \par
+- $\hat{y_t}$: forecasted value \par
+- $y_t$ : actual value \par
+The formulas are $R_t = R_{t-1}e^{r_t} + d_i$, and $r_t=ln(f_t/f_{t-1})$. The percentage difference on the average asset forecasting is calculated by $\frac{1}{n}\sum_i^n (\hat{y_t} - y_t)/y_t$, and $t=1,2,...,n$. The $y_t$ here refers to the de-outlier flow, but we can also use the real flow for comparison.\par
+Feel free to play with the functions reconcile_asset() and eval_asset() in the 'functions_EDA.R' file. \par
 
+## Model Comparison 
+```{r echo=F}
+c1 <- cbind(result_ARIMA,result_SARIMA1,result_SARIMA2)
+c2 <- cbind(result_HW1,result_HW2)
+`Percentage difference on asseet` <- c(eval_asset_ARIMA, eval_asset_SARIMA1, eval_asset_SARIMA2)
+`Percentage difference on asseet ` <- c(eval_asset_HW1, eval_asset_HW2)
+
+b1 <- rbind(c1,`Percentage difference on asseet`)
+b2 <- rbind(c2,`Percentage difference on asseet `)
+
+colnames(b1) <- c('ARIMA', 'SARIMA on 5 moving average', 'SARIMA on 21 moving average')
+colnames(b2) <- c('Holt-Winters with freqency 5', 'Holt-Winters with freqency 21')
+
+kable(b1,booktabs = T,align = "c")%>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+kable(b2,booktabs = T,align = "c")%>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
 ```
+
+## Conclusion
+The simple ARIMA has the lowest MAPE, but higher percentage difference on asset value. The drawback of ARIMA is that the point forecasting converges to the mean when doing long-term forecasting, which means that ARIMA does not capture the variability of the data.\par
+SARIMA models have the highest MAPE, but lower percentage difference on asset value compared to the ARIMA model, which means SARIMA captures some seasonalities, but on the other hand they may have overfitting problem.\par
+HoltWinter performs awful on the data with frequency 5, but much better on the data with frequency 21. The weekly frequency can be dangerous than monthly frequency because the actual weekdays may not match with each other over time due to the cut-off of the dates.\par 
 
 
 
