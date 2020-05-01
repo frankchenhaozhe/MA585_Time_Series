@@ -66,7 +66,7 @@ ylab="PACF",xlab="lag")
                 compare AICC to choose your final model. Use the model to Forecast the 24 values along with the
                 forecast intervals.
     Forecast 3: Use Holt-Winters seasonal forecasting method to predict the 24 values along with the forecast                    intervals.
-(c) Now complete the following table to compare between the forecasts:
+(c) Now complete the following table to compare between the forecasts: 
 What is your conclusion?
 
 
@@ -86,12 +86,14 @@ train <- co2[1: (length(co2)-24)]
 test <- co2[(length(co2)-23): length(co2)]
 
 # the data has monthly seasonalities
-fit0 <- armasubsets(y = train, nar = 14, nma = 14)
+fit0 <- armasubsets(y = train, nar = 5, nma = 5)
 plot(fit0)
 # choose the 5th model
 
-fit1 <- arima(train, order=c(14,0,12), fixed = C(NA,NA, rep(0,9), rep(NA,6), rep(0,8), NA, NA))
-forecast(fit1, h = length(test))
+fit1 <- Arima(train, order=c(5,0,3), fixed = c(rep(NA,4),0,rep(NA,4)))
+forecast <- forecast(fit1, h = length(test))
+plot(forecast)
+accuracy(forecast)
 
 ```
 
@@ -150,8 +152,8 @@ accuracy(fc3, test)
 ```{r}
 
 Criteria <- c('Forecast 1','Forecast 2','Forecast 3')
-`RMSE (Root Mean Squared Error)` <- c(NA,NA,NA)
-`MAPE (Mean Average Percent Error)` <- c(NA,NA,NA)
+`RMSE (Root Mean Squared Error)` <- c(0.6686277,0.4163387,0.3471728)
+`MAPE (Mean Average Percent Error)` <- c(0.1604593,0.07224682,0.07241756)
 table <- rbind(Criteria, `RMSE (Root Mean Squared Error)`,`MAPE (Mean Average Percent Error)`)
 kable(table,booktabs = T,align = "c")%>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
 
