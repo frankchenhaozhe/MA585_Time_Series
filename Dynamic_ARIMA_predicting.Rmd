@@ -14,7 +14,7 @@ library(tseries)
 
 r <- function(df){
   # load the data
-  df1 <- read.csv(df)[,c('Date','Adj.Close')] %>% mutate(Date = as_date(Date))
+  df1 <- read.csv(df)[,c('Date','Adj.Close')] %>% dplyr::mutate(Date = lubridate::as_date(Date))
   # convert to time series 
   df2 <- xts(df1[,-1], order.by = as.Date(df1[,1]), '%m/%d%Y')
   # Compute the log returns for the stock
@@ -25,7 +25,7 @@ r <- function(df){
 }
 
 stock <- function(df){
-  df1 <- read.csv(df)[,c('Date','Adj.Close')] %>% mutate(Date = as_date(Date))
+  df1 <- read.csv(df)[,c('Date','Adj.Close')] %>% dplyr::mutate(Date = lubridate::as_date(Date))
   stock <- xts(df1[,-1], order.by = as.Date(df1[,1]), '%m/%d%Y')
   return(stock)
 }
@@ -34,15 +34,13 @@ stock <- function(df){
 
 ```{r}
 # load the returns
-SnP500_r <- r('./Data/SnP500.csv')
-SnP500 <- stock('./Data/SnP500.csv') 
+SnP500_r <- r('./Data/^GSPC.csv')
+SnP500 <- stock('./Data/^GSPC.csv') 
 # plot the series 
 plot(SnP500)
 # Conduct ADF test on log returns series
 print(adf.test(SnP500_r))
 
-z <- decompose(SnP500, type="additive")
-plot(z)
 
 ```
 

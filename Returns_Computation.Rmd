@@ -12,10 +12,10 @@ library(lubridate)
 library(tidyverse)
 library(dplyr)
 library(esquisse)
-Nasdaq <- read.csv("Nasdaq.csv", header=T, stringsAsFactors=F)
-SnP500 <- read.csv("SnP500.csv", header=T, stringsAsFactors=F)
-Dow30 <- read.csv("Dow30.csv", header=T, stringsAsFactors=F)
-Russell2000 <- read.csv("Russell2000.csv", header=T, stringsAsFactors=F)
+Nasdaq <- read.csv("./Data/^IXIC.csv", header=T, stringsAsFactors=F)
+SnP500 <- read.csv("./Data/^GSPC.csv", header=T, stringsAsFactors=F)
+Dow30 <- read.csv("./Data/^DJI.csv", header=T, stringsAsFactors=F)
+Russell2000 <- read.csv("./Data/^RUT.csv", header=T, stringsAsFactors=F)
 ```
 
 ```{r}
@@ -57,20 +57,6 @@ head(daily_return)
 
 ```
 
-```{r}
-# esquisser(Nasdaq3)
-
-# Comparing monthly returns
-ggplot(monthly_return) +
- aes(x = month, y = log_return) +
- geom_line(size = 1L, colour = "#0b53c1") +
- labs(y = "log returns", title = "Comparing monthly returns ") +
- theme_linedraw() +
- facet_wrap(vars(year))
-
-# Comparing daily returns in 2018
-
-```
 
 
 
